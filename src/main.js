@@ -496,12 +496,12 @@ function buildOverlayMain() {
       // .addButtonHelp({'title': 'Controls the website as if it were possessed.'}).buildElement()
       // .addBr().buildElement()
       .addDiv({'id': 'bm-contain-highlight', 'style': 'display: flex; align-items: center; gap: 0.5ch;'})
-      .addCheckbox({'id': 'bm-input-highlight-wrong', 'textContent': 'Highlight wrong pixels', 'checked': false}, (instance, label, checkbox) => {
+      .addCheckbox({'id': 'bm-input-highlight-wrong', 'textContent': 'Highlight wrong pixels', 'checked': false, 'style': 'display: inline-flex; align-items: center; gap: 0.5ch; margin-top: -3px;'}, (instance, label, checkbox) => {
         checkbox.addEventListener('change', () => {
           console.log('🎨 Highlight wrong pixels:', checkbox.checked);
         });
       }).buildElement()
-      .addInput({'type': 'color', 'id': 'bm-input-highlight-color', 'value': '#00FF00', 'style': 'width: 2em; height: 1.5em; border: none; cursor: pointer;'}, (instance, colorInput) => {
+      .addInput({'type': 'color', 'id': 'bm-input-highlight-color', 'value': '#00FF00', 'style': 'width: 1.1em; height: 1.1em; border: none; padding: 0; cursor: pointer; vertical-align: middle; appearance: none; -webkit-appearance: none; border-radius: 2px;'}, (instance, colorInput) => {
         colorInput.addEventListener('change', () => {
           console.log('🎨 Highlight color changed to:', colorInput.value);
         });
