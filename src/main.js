@@ -495,6 +495,19 @@ function buildOverlayMain() {
       // .addCheckbox({'id': 'bm-input-possessed', 'textContent': 'Possessed', 'checked': true}).buildElement()
       // .addButtonHelp({'title': 'Controls the website as if it were possessed.'}).buildElement()
       // .addBr().buildElement()
+      .addDiv({'id': 'bm-contain-highlight', 'style': 'display: flex; align-items: center; gap: 0.5ch;'})
+      .addCheckbox({'id': 'bm-input-highlight-wrong', 'textContent': 'Highlight wrong pixels', 'checked': false}, (instance, label, checkbox) => {
+        checkbox.addEventListener('change', () => {
+          console.log('🎨 Highlight wrong pixels:', checkbox.checked);
+        });
+      }).buildElement()
+      .addInput({'type': 'color', 'id': 'bm-input-highlight-color', 'value': '#00FF00', 'style': 'width: 2em; height: 1.5em; border: none; cursor: pointer;'}, (instance, colorInput) => {
+        colorInput.addEventListener('change', () => {
+          console.log('🎨 Highlight color changed to:', colorInput.value);
+        });
+      }).buildElement()
+    .buildElement()
+    .addBr().buildElement()
       .addDiv({'id': 'bm-contain-coords'})
         .addButton({'id': 'bm-button-coords', 'className': 'bm-help', 'style': 'margin-top: 0;', 'innerHTML': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 6"><circle cx="2" cy="2" r="2"></circle><path d="M2 6 L3.7 3 L0.3 3 Z"></path><circle cx="2" cy="2" r="0.7" fill="white"></circle></svg></svg>'},
           (instance, button) => {
