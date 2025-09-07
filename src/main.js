@@ -275,6 +275,15 @@ function buildOverlayMain() {
     } catch (_) {}
   };
   
+  // Load saved highlight color (default to bright green)
+  let savedHighlightColor = '#00FF00';
+  try {
+    const us = JSON.parse(GM_getValue('bmUserSettings', '{}')) || {};
+    if (typeof us.highlightColor === 'string' && us.highlightColor.trim() !== '') {
+      savedHighlightColor = us.highlightColor;
+    }
+  } catch (_) {}
+  
   overlayMain.addDiv({'id': 'bm-overlay', 'style': 'top: 10px; right: 75px;'})
     .addDiv({'id': 'bm-contain-header'})
       .addDiv({'id': 'bm-bar-drag'}).buildElement()
@@ -495,6 +504,24 @@ function buildOverlayMain() {
       // .addCheckbox({'id': 'bm-input-possessed', 'textContent': 'Possessed', 'checked': true}).buildElement()
       // .addButtonHelp({'title': 'Controls the website as if it were possessed.'}).buildElement()
       // .addBr().buildElement()
+      .addDiv({'id': 'bm-contain-highlight', 'style': 'display: flex; align-items: center; gap: 0.5ch;'})
+      .addCheckbox({'id': 'bm-input-highlight-wrong', 'textContent': 'Highlight wrong pixels', 'checked': false, 'style': 'display: inline-flex; align-items: center; gap: 0.5ch; margin-top: -3px;'}, (instance, label, checkbox) => {
+        checkbox.addEventListener('change', () => {
+          console.log('🎨 Highlight wrong pixels:', checkbox.checked);
+        });
+      }).buildElement()
+      .addInput({'type': 'color', 'id': 'bm-input-highlight-color', 'value': savedHighlightColor, 'style': 'width: 1.1em; height: 1.1em; border: none; padding: 0; cursor: pointer; vertical-align: middle; appearance: none; -webkit-appearance: none; border-radius: 2px;'}, (instance, colorInput) => {
+        colorInput.addEventListener('change', () => {
+          console.log('🎨 Highlight color changed to:', colorInput.value);
+          try {
+            const userSettings = JSON.parse(GM_getValue('bmUserSettings', '{}')) || {};
+            userSettings.highlightColor = colorInput.value;
+            GM.setValue('bmUserSettings', JSON.stringify(userSettings));
+          } catch (_) {}
+        });
+      }).buildElement()
+    .buildElement()
+    .addBr().buildElement()
       .addDiv({'id': 'bm-contain-coords'})
         .addButton({'id': 'bm-button-coords', 'className': 'bm-help', 'style': 'margin-top: 0;', 'innerHTML': '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 6"><circle cx="2" cy="2" r="2"></circle><path d="M2 6 L3.7 3 L0.3 3 Z"></path><circle cx="2" cy="2" r="0.7" fill="white"></circle></svg></svg>'},
           (instance, button) => {

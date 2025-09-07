@@ -216,6 +216,10 @@ export default class TemplateManager {
    * @since 0.65.77
    */
   async drawTemplateOnTile(tileBlob, tileCoords) {
+    // COMMENTED OUT: Original shitty implementation with useless pixel counting
+    // and drawing template overlay on ALL pixels regardless of correctness
+    // TODO: Rewrite this clusterfuck with proper optimizations
+    /*
 
     // Returns early if no templates should be drawn
     if (!this.templatesShouldBeDrawn) {return tileBlob;}
@@ -296,6 +300,13 @@ export default class TemplateManager {
 
     context.clearRect(0, 0, drawSize, drawSize); // Draws transparent background
     context.drawImage(tileBitmap, 0, 0, drawSize, drawSize);
+
+    // Apply darkening overlay if wrong pixels highlighting is enabled
+    const highlightCheckbox = document.querySelector('#bm-input-highlight-wrong');
+    if (highlightCheckbox?.checked) {
+      context.fillStyle = 'rgba(0, 0, 0, 0.6)'; // 60% dark overlay
+      context.fillRect(0, 0, drawSize, drawSize);
+    }
 
     // Grab a snapshot of the tile pixels BEFORE we draw any template overlays
     let tilePixels = null;
@@ -522,6 +533,133 @@ export default class TemplateManager {
       );
     } else {
       this.overlay.handleDisplayStatus(`Displaying ${templateCount} templates.`);
+    }
+
+    return await canvas.convertToBlob({ type: 'image/png' });
+    */
+    
+    // NEW IMPLEMENTATION (phase 1): Early exits and preparation only.
+    if (!this.templatesShouldBeDrawn) { return tileBlob; }
+
+    // Normalize tile key and compute draw size
+    const drawSize = this.tileSize * this.drawMult;
+    const tileKey = tileCoords[0].toString().padStart(4, '0') + ',' + tileCoords[1].toString().padStart(4, '0');
+
+    // Collect templates that touch this tile (first matching chunk per template)
+    const sorted = Array.isArray(this.templatesArray) ? [...this.templatesArray] : [];
+    sorted.sort((a, b) => (a?.sortID ?? 0) - (b?.sortID ?? 0));
+    const templatesToDraw = sorted.map(t => {
+      if (!t?.chunked) { return null; }
+      // Fast skip: if template records tile prefixes and this tile isn't among them, skip
+      if (t?.tilePrefixes && t.tilePrefixes.size > 0 && !t.tilePrefixes.has(tileKey)) { return null; }
+      const matches = Object.keys(t.chunked).filter(k => k.startsWith(tileKey));
+      if (matches.length === 0) { return null; }
+      const key = matches[0].split(',');
+      return {
+        bitmap: t.chunked[matches[0]],
+        tileCoords: [key[0], key[1]],
+        pixelCoords: [key[2], key[3]],
+        templateRef: t,
+      };
+    }).filter(Boolean);
+
+    if (templatesToDraw.length === 0) { return tileBlob; }
+
+    // Prepare canvas and snapshot tile pixels for later per-pixel ops
+    const tileBitmap = await createImageBitmap(tileBlob);
+    const canvas = new OffscreenCanvas(drawSize, drawSize);
+    const context = canvas.getContext('2d');
+    context.imageSmoothingEnabled = false;
+    context.clearRect(0, 0, drawSize, drawSize);
+    context.drawImage(tileBitmap, 0, 0, drawSize, drawSize);
+
+    let tilePixels = null;
+    try { tilePixels = context.getImageData(0, 0, drawSize, drawSize).data; } catch (_) {}
+
+    // RENDER STEP (basic): draw only wrong pixels from each template
+    if (tilePixels) {
+      for (const t of templatesToDraw) {
+        try {
+          const tempW = t.bitmap.width;
+          const tempH = t.bitmap.height;
+          const tempCanvas = new OffscreenCanvas(tempW, tempH);
+          const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+          tempCtx.imageSmoothingEnabled = false;
+          tempCtx.clearRect(0, 0, tempW, tempH);
+          tempCtx.drawImage(t.bitmap, 0, 0);
+          const img = tempCtx.getImageData(0, 0, tempW, tempH);
+          const data = img.data;
+
+          const offsetX = Number(t.pixelCoords[0]) * this.drawMult;
+          const offsetY = Number(t.pixelCoords[1]) * this.drawMult;
+
+          const center = Math.floor(this.drawMult / 2);
+          const highlightEnabled = !!document.querySelector('#bm-input-highlight-wrong')?.checked;
+          const highlightColor = document.querySelector('#bm-input-highlight-color')?.value || '#00FF00';
+
+          // If highlight is enabled, darken the entire template area once
+          if (highlightEnabled) {
+            context.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            context.fillRect(offsetX, offsetY, tempW, tempH);
+          }
+          for (let y = center; y < tempH; y += this.drawMult) {
+            for (let x = center; x < tempW; x += this.drawMult) {
+              const tx = offsetX + x;
+              const ty = offsetY + y;
+              if (tx < 0 || ty < 0 || tx >= drawSize || ty >= drawSize) { continue; }
+
+              const idx = (y * tempW + x) * 4;
+              const a = data[idx + 3];
+              if (a < 64) { continue; } // template pixel not required
+              const r = data[idx];
+              const g = data[idx + 1];
+              const b = data[idx + 2];
+
+
+              const tIdx = (ty * drawSize + tx) * 4;
+              const ta = tilePixels[tIdx + 3];
+              const tileOpaque = ta >= 64;
+
+              // Classify the discrepancy for future styling
+              let isMissing = false;   // tile empty, template expects pixel
+              let isMismatch = false;  // tile has pixel, but wrong color
+
+              if (!tileOpaque) {
+                isMissing = true;
+              } else {
+                const tr = tilePixels[tIdx];
+                const tg = tilePixels[tIdx + 1];
+                const tb = tilePixels[tIdx + 2];
+                if (tr !== r || tg !== g || tb !== b) { isMismatch = true; }
+              }
+
+              // For wrong cases, highlight the block once and place 1x1 template color dot
+              if (isMissing || isMismatch) {
+                if (highlightEnabled && isMismatch) {
+                  const half = Math.floor((this.drawMult - 1) / 2);
+                  const left = tx - half;
+                  const top = ty - half;
+                  context.fillStyle = highlightColor;
+                  context.fillRect(left, top, this.drawMult, this.drawMult);
+                }
+                context.fillStyle = `rgb(${r}, ${g}, ${b})`;
+                context.fillRect(tx, ty, 1, 1);
+              }
+            }
+          }
+        } catch (_) { /* ignore template errors */ }
+      }
+    } else {
+      // Fallback: if we cannot access tile pixels, draw full template bitmaps
+      for (const t of templatesToDraw) {
+        try {
+          context.drawImage(
+            t.bitmap,
+            Number(t.pixelCoords[0]) * this.drawMult,
+            Number(t.pixelCoords[1]) * this.drawMult
+          );
+        } catch (_) { /* ignore */ }
+      }
     }
 
     return await canvas.convertToBlob({ type: 'image/png' });
