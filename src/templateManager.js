@@ -597,8 +597,13 @@ export default class TemplateManager {
           const highlightEnabled = !!document.querySelector('#bm-input-highlight-wrong')?.checked;
           const highlightColor = document.querySelector('#bm-input-highlight-color')?.value || '#00FF00';
 
-          // If highlight is enabled, darken the entire template area once
-          if (highlightEnabled) {
+          // Palette-based filter: if template exists and all its colors are disabled, skip drawing hints for this template
+          const palette = t.templateRef?.colorPalette || {};
+          const hasPaletteEntries = Object.keys(palette).length > 0;
+          const allColorsDisabled = hasPaletteEntries && Object.values(palette).every(v => v?.enabled === false);
+
+          // If highlight is enabled, darken the template area once (but not when all colors are disabled)
+          if (highlightEnabled && !allColorsDisabled) {
             context.fillStyle = 'rgba(0, 0, 0, 0.6)';
             context.fillRect(offsetX, offsetY, tempW, tempH);
           }
@@ -614,7 +619,10 @@ export default class TemplateManager {
               const r = data[idx];
               const g = data[idx + 1];
               const b = data[idx + 2];
-
+              const rgbKey = `${r},${g},${b}`;
+              // Skip disabled colors for rendering
+              if (allColorsDisabled) { continue; }
+              if (palette && palette[rgbKey] && palette[rgbKey].enabled === false) { continue; }
 
               const tIdx = (ty * drawSize + tx) * 4;
               const ta = tilePixels[tIdx + 3];
