@@ -602,8 +602,8 @@ export default class TemplateManager {
           const hasPaletteEntries = Object.keys(palette).length > 0;
           const allColorsDisabled = hasPaletteEntries && Object.values(palette).every(v => v?.enabled === false);
 
-          // If highlight is enabled, darken the entire template area once
-          if (highlightEnabled) {
+          // If highlight is enabled, darken the template area once (but not when all colors are disabled)
+          if (highlightEnabled && !allColorsDisabled) {
             context.fillStyle = 'rgba(0, 0, 0, 0.6)';
             context.fillRect(offsetX, offsetY, tempW, tempH);
           }
